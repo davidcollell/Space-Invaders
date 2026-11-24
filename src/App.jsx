@@ -4,6 +4,10 @@ const W = 360, H = 540
 const COLORS = ['#ff5c8a', '#ffd166', '#69e6ff']
 const BEST_KEY = 'spaceInvadersBest'
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+const enemySpeedForLevel = level => Math.min(62, 26 + (level - 1) * 3.2)
+const enemyShotIntervalForLevel = level => Math.max(620, 1450 - (level - 1) * 45)
+const bossSpeedForLevel = level => Math.min(78, 48 + (level - 5) * 1.5)
+const bossShotIntervalForLevel = level => Math.max(620, 1000 - (level - 5) * 22)
 const readBest = () => { try { return Number(localStorage.getItem(BEST_KEY) || 0) } catch { return 0 } }
 const writeBest = value => { try { localStorage.setItem(BEST_KEY, String(value)) } catch {} }
 const makeWave = level => {
@@ -15,7 +19,7 @@ const makeWave = level => {
     return { x: 34 + col * 43, y: 66 + row * 34, w: 22, h: 19, row, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
   })
 }
-const makeBoss = level => ({ x: 126, y: 55, w: 108, h: 48, hp: 18 + level * 3, maxHp: 18 + level * 3, dir: 1, shotAt: 0 })
+const makeBoss = level => { const hp = 18 + Math.min(level, 15) * 2; return { x: 126, y: 55, w: 108, h: 48, hp, maxHp: hp, dir: 1, shotAt: 0 } }
 
 export default function App() {
   const canvasRef = useRef(null)
@@ -124,7 +128,7 @@ export default function App() {
       s.level++; s.waveCleared = true; s.bullets = []; s.enemyBullets = []; s.drops = []
       s.player.invulnerable = 1.8
       if (s.level % 5 === 0) s.boss = makeBoss(s.level)
-      else { s.boss = null; s.enemies = makeWave(s.level); s.enemySpeed = 26 + s.level * 5 }
+      else { s.boss = null; s.enemies = makeWave(s.level); s.enemySpeed = enemySpeedForLevel(s.level) }
       setLevel(s.level); setNotice(s.level % 5 === 0 ? 'CAP FINAL!' : `NIVELL ${s.level}`)
       setTimeout(() => setNotice(''), 1300)
       beep(660,.12); setTimeout(() => beep(880,.14),130)
@@ -154,17 +158,17 @@ export default function App() {
         ctx.fillRect(sh.x+5,sh.y-5,sh.w-10,5)
       })
       if(s.boss){
-        const b=s.boss; b.x+=b.dir*(48+s.level*2)*dt
+        const b=s.boss; b.x+=b.dir*bossSpeedForLevel(s.level)*dt
         if(b.x<12||b.x+b.w>W-12)b.dir*=-1
         ctx.fillStyle='#ff5c8a';ctx.fillRect(b.x+15,b.y,b.w-30,12);ctx.fillRect(b.x+5,b.y+12,b.w-10,20);ctx.fillRect(b.x,b.y+32,b.w,12)
         ctx.fillStyle='#08111f';ctx.fillRect(b.x+25,b.y+16,12,7);ctx.fillRect(b.x+b.w-37,b.y+16,12,7)
         ctx.fillStyle='#52213e';ctx.fillRect(55,24,250,7);ctx.fillStyle='#ff5c8a';ctx.fillRect(55,24,250*(b.hp/b.maxHp),7)
-        if(time-b.shotAt>850){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
+        if(time-b.shotAt>bossShotIntervalForLevel(s.level)){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
       } else {
         let minX=W,maxX=0,any=false
         s.enemies.forEach(e=>{if(!e.alive)return;any=true;e.x+=s.direction*s.enemySpeed*dt;minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+e.w)})
         if(any&&(maxX>W-10||minX<10)){s.direction*=-1;s.enemies.forEach(e=>{if(e.alive)e.y+=12})}
-        if(time-s.lastEnemyShot>Math.max(420,1450-s.level*65)){
+        if(time-s.lastEnemyShot>enemyShotIntervalForLevel(s.level)){
           const shooters=s.enemies.filter(e=>e.alive)
           if(shooters.length){const e=shooters[Math.floor(Math.random()*shooters.length)];s.enemyBullets.push({x:e.x+10,y:e.y+18,w:4,h:10})}
           s.lastEnemyShot=time
@@ -175,7 +179,7 @@ export default function App() {
       s.bullets.forEach(b=>{
         if(s.boss && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
           b.y=-30;s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
-          if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5}
+          if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=enemySpeedForLevel(s.level)}
         } else s.enemies.forEach(e=>{
           if(e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){
             b.y=-30;e.hp--;burst(e.x+11,e.y+9,COLORS[e.row%3],4)
