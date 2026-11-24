@@ -54,7 +54,7 @@ export default function App() {
       player: { x: W / 2 - 15, y: H - 58, w: 30, h: 22, invulnerable: 1.2 },
       enemies: makeWave(1), boss: null, bullets: [], enemyBullets: [], particles: [], drops: [],
       shields: [0, 1, 2].map(i => ({ x: 36 + i * 112, y: 405, w: 42, hp: 5 })),
-      direction: 1, enemySpeed: 26, descentRemaining: 0, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
+      direction: 1, enemySpeed: 26, currentEnemySpeed: 26, descentRemaining: 0, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
       elapsed: 0, stars: Array.from({ length: 75 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.7 + .4 })),
       combo: 0, comboUntil: 0, power: '', powerUntil: 0, nextExtraLife: 1200,
       waveCleared: false, level: 1, score: 0, lives: 3, paused: false
@@ -124,7 +124,7 @@ export default function App() {
       s.level++; s.waveCleared = true; s.bullets = []; s.enemyBullets = []; s.drops = []
       s.player.invulnerable = 1.8
       if (s.level % 5 === 0) s.boss = makeBoss(s.level)
-      else { s.boss = null; s.enemies = makeWave(s.level); s.enemySpeed = 26 + s.level * 5 }
+      else { s.boss = null; s.enemies = makeWave(s.level); s.enemySpeed = 26 + s.level * 5; s.currentEnemySpeed = s.enemySpeed }
       setLevel(s.level); setNotice(s.level % 5 === 0 ? 'CAP FINAL!' : `NIVELL ${s.level}`)
       setTimeout(() => setNotice(''), 1300)
       beep(660,.12); setTimeout(() => beep(880,.14),130)
@@ -162,6 +162,10 @@ export default function App() {
         if(time-b.shotAt>850){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
       } else {
         let minX=W,maxX=0,any=false
+        const aliveCount = s.enemies.reduce((count,e)=>count+(e.alive?1:0),0)
+        const totalCount = s.enemies.length || 1
+        const targetSpeed = s.enemySpeed * (1 + (1 - aliveCount / totalCount) * .65)
+        s.currentEnemySpeed += (targetSpeed - s.currentEnemySpeed) * Math.min(1, 2.2 * dt)
         if(s.descentRemaining>0){
           const step=Math.min(s.descentRemaining,65*dt)
           s.enemies.forEach(e=>{if(e.alive)e.y+=step})
@@ -170,7 +174,7 @@ export default function App() {
           s.enemies.forEach(e=>{
             if(!e.alive)return
             any=true
-            e.x+=s.direction*s.enemySpeed*dt
+            e.x+=s.direction*s.currentEnemySpeed*dt
             minX=Math.min(minX,e.x)
             maxX=Math.max(maxX,e.x+e.w)
           })
@@ -190,7 +194,7 @@ export default function App() {
       s.bullets.forEach(b=>{
         if(s.boss && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
           b.y=-30;s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
-          if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5}
+          if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
         } else s.enemies.forEach(e=>{
           if(e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){
             b.y=-30;e.hp--;burst(e.x+11,e.y+9,COLORS[e.row%3],4)
