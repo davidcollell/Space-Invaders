@@ -167,7 +167,11 @@ export default function App() {
       } else {
         let minX=W,maxX=0,any=false
         s.enemies.forEach(e=>{if(!e.alive)return;any=true;e.x+=s.direction*s.enemySpeed*dt;minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+e.w)})
-        if(any&&(maxX>W-10||minX<10)){s.direction*=-1;s.enemies.forEach(e=>{if(e.alive)e.y+=12})}
+        if(any&&(maxX>W-10||minX<10)){
+          const correction = maxX>W-10 ? (W-10)-maxX : 10-minX
+          s.enemies.forEach(e=>{if(e.alive){e.x+=correction;e.y+=12}})
+          s.direction*=-1
+        }
         if(time-s.lastEnemyShot>enemyShotIntervalForLevel(s.level)){
           const shooters=s.enemies.filter(e=>e.alive)
           if(shooters.length){const e=shooters[Math.floor(Math.random()*shooters.length)];s.enemyBullets.push({x:e.x+10,y:e.y+18,w:4,h:10})}
