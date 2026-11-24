@@ -39,14 +39,63 @@ export default function App() {
       if (!audioRef.current) audioRef.current = new AudioContext()
       const ctx = audioRef.current
       if (ctx.state === 'suspended') ctx.resume()
-      const osc = ctx.createOscillator(), gain = ctx.createGain()
-      osc.type = type; osc.frequency.value = frequency
-      gain.gain.setValueAtTime(.045, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + duration)
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.start(); osc.stop(ctx.currentTime + duration)
+      const now = ctx.currentTime
+      const main = ctx.createOscillator(), body = ctx.createOscillator()
+      const mainGain = ctx.createGain(), bodyGain = ctx.createGain()
+      main.type = type; main.frequency.setValueAtTime(frequency * 1.12, now)
+      main.frequency.exponentialRampToValueAtTime(frequency, now + Math.max(.025, duration))
+      body.type = 'triangle'; body.frequency.value = frequency * .5
+      mainGain.gain.setValueAtTime(.001, now)
+      mainGain.gain.linearRampToValueAtTime(.032, now + .008)
+      mainGain.gain.exponentialRampToValueAtTime(.001, now + duration + .035)
+      bodyGain.gain.setValueAtTime(.001, now)
+      bodyGain.gain.linearRampToValueAtTime(.014, now + .012)
+      bodyGain.gain.exponentialRampToValueAtTime(.001, now + duration + .06)
+      main.connect(mainGain); body.connect(bodyGain)
+      mainGain.connect(ctx.destination); bodyGain.connect(ctx.destination)
+      main.start(now); body.start(now)
+      main.stop(now + duration + .04); body.stop(now + duration + .07)
     } catch {}
   }, [muted])
+
+  useEffect(() => {
+    if (muted || screen !== 'playing' || paused) return
+    let ctx
+    let timer
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!audioRef.current) audioRef.current = new AudioContext()
+      ctx = audioRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      const notes = [110, 164.81, 220, 164.81, 130.81, 196, 261.63, 196]
+      let step = 0
+      const playMusicNote = () => {
+        if (!ctx || ctx.state !== 'running') return
+        const now = ctx.currentTime
+        const frequency = notes[step % notes.length]
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(frequency, now)
+        gain.gain.setValueAtTime(.001, now)
+        gain.gain.linearRampToValueAtTime(.014, now + .025)
+        gain.gain.exponentialRampToValueAtTime(.001, now + .29)
+        osc.connect(gain)
+        if (pan) {
+          pan.pan.value = step % 2 ? .18 : -.18
+          gain.connect(pan); pan.connect(ctx.destination)
+        } else gain.connect(ctx.destination)
+        osc.start(now); osc.stop(now + .31)
+        step++
+      }
+      playMusicNote()
+      timer = window.setInterval(playMusicNote, 320)
+    } catch {}
+    return () => {
+      if (timer) window.clearInterval(timer)
+    }
+  }, [screen, paused, muted])
 
   const startGame = useCallback(() => {
     keys.current = { left: false, right: false, fire: false }
