@@ -54,7 +54,7 @@ export default function App() {
       player: { x: W / 2 - 15, y: H - 58, w: 30, h: 22, invulnerable: 1.2 },
       enemies: makeWave(1), boss: null, bullets: [], enemyBullets: [], particles: [], drops: [],
       shields: [0, 1, 2].map(i => ({ x: 36 + i * 112, y: 405, w: 42, hp: 5 })),
-      direction: 1, enemySpeed: 26, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
+      direction: 1, enemySpeed: 26, descentRemaining: 0, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
       elapsed: 0, stars: Array.from({ length: 75 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.7 + .4 })),
       combo: 0, comboUntil: 0, power: '', powerUntil: 0, nextExtraLife: 1200,
       waveCleared: false, level: 1, score: 0, lives: 3, paused: false
@@ -162,8 +162,23 @@ export default function App() {
         if(time-b.shotAt>850){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
       } else {
         let minX=W,maxX=0,any=false
-        s.enemies.forEach(e=>{if(!e.alive)return;any=true;e.x+=s.direction*s.enemySpeed*dt;minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+e.w)})
-        if(any&&(maxX>W-10||minX<10)){s.direction*=-1;s.enemies.forEach(e=>{if(e.alive)e.y+=12})}
+        if(s.descentRemaining>0){
+          const step=Math.min(s.descentRemaining,65*dt)
+          s.enemies.forEach(e=>{if(e.alive)e.y+=step})
+          s.descentRemaining-=step
+        } else {
+          s.enemies.forEach(e=>{
+            if(!e.alive)return
+            any=true
+            e.x+=s.direction*s.enemySpeed*dt
+            minX=Math.min(minX,e.x)
+            maxX=Math.max(maxX,e.x+e.w)
+          })
+          if(any&&(maxX>W-10||minX<10)){
+            s.direction*=-1
+            s.descentRemaining=14
+          }
+        }
         if(time-s.lastEnemyShot>Math.max(420,1450-s.level*65)){
           const shooters=s.enemies.filter(e=>e.alive)
           if(shooters.length){const e=shooters[Math.floor(Math.random()*shooters.length)];s.enemyBullets.push({x:e.x+10,y:e.y+18,w:4,h:10})}
