@@ -4,6 +4,8 @@ const W = 360, H = 540
 const COLORS = ['#ff5c8a', '#ffd166', '#69e6ff']
 const BEST_KEY = 'spaceInvadersBest'
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+const readBest = () => { try { return Number(localStorage.getItem(BEST_KEY) || 0) } catch { return 0 } }
+const writeBest = value => { try { localStorage.setItem(BEST_KEY, String(value)) } catch {} }
 const makeWave = level => {
   const rows = Math.min(3 + Math.floor((level - 1) / 2), 5)
   const cols = 7
@@ -25,7 +27,7 @@ export default function App() {
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [lives, setLives] = useState(3)
-  const [best, setBest] = useState(() => Number(localStorage.getItem(BEST_KEY) || 0))
+  const [best, setBest] = useState(readBest)
   const [muted, setMuted] = useState(true)
   const [hud, setHud] = useState({ score: 0, level: 1, lives: 3, combo: 0, power: '' })
   const [notice, setNotice] = useState('')
@@ -213,7 +215,7 @@ export default function App() {
     return()=>{alive=false;cancelAnimationFrame(raf)}
   },[screen,paused,muted,beep,finishGame])
 
-  useEffect(()=>{if(score>best){setBest(score);localStorage.setItem(BEST_KEY,String(score))}},[score,best])
+  useEffect(()=>{if(score>best){setBest(score);writeBest(score)}},[score,best])
   useEffect(()=>{
     const down=e=>{
       const k=e.key.toLowerCase()
