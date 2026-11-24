@@ -229,6 +229,17 @@ export default function App() {
     window.addEventListener('keydown',down);window.addEventListener('keyup',up)
     return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up)}
   },[screen])
+  useEffect(()=>{
+    const onVisibilityChange=()=>{
+      if(document.hidden){
+        keys.current={left:false,right:false,fire:false}
+        if(screen==='playing')setPaused(true)
+      }
+    }
+    document.addEventListener('visibilitychange',onVisibilityChange)
+    return()=>document.removeEventListener('visibilitychange',onVisibilityChange)
+  },[screen])
+
   const hold=(key,value)=>e=>{e.preventDefault();keys.current[key]=value}
   const exit=()=>{keys.current={left:false,right:false,fire:false};setPaused(false);setScreen('menu')}
   const pause=()=>{keys.current={left:false,right:false,fire:false};setPaused(v=>!v)}
