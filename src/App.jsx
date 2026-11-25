@@ -12,7 +12,8 @@ const makeWave = level => {
   return Array.from({ length: rows * cols }, (_, i) => {
     const row = Math.floor(i / cols), col = i % cols
     const tough = level >= 4 && row === 0
-    return { x: 34 + col * 43, y: 66 + row * 34, w: 22, h: 19, row, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
+    const kind = level >= 3 && i % 9 === 0 ? 'attacker' : level >= 2 && i % 4 === 0 ? 'fast' : 'normal'
+    return { x: 34 + col * 43, y: 66 + row * 34, w: 22, h: 19, row, kind, diveOffset: 0, diveState: 'waiting', diveTimer: 2.5 + (i % 7) * .55, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
   })
 }
 const makeBoss = level => ({ x: 126, y: 55, w: 108, h: 48, hp: 18 + level * 3, maxHp: 18 + level * 3, dir: 1, shotAt: 0 })
@@ -132,11 +133,16 @@ export default function App() {
       ctx.fillStyle = '#eaffff'; ctx.fillRect(x+w/2-1,y+3,2,5)
     }
     const drawEnemy = e => {
-      ctx.fillStyle = COLORS[e.row % 3]
-      ctx.fillRect(e.x+5,e.y,12,4); ctx.fillRect(e.x+2,e.y+4,18,5); ctx.fillRect(e.x,e.y+9,22,5)
-      ctx.fillRect(e.x+3,e.y+14,5,4); ctx.fillRect(e.x+14,e.y+14,5,4)
-      ctx.fillStyle = '#08111f'; ctx.fillRect(e.x+6,e.y+7,3,3); ctx.fillRect(e.x+14,e.y+7,3,3)
-      if (e.hp > 1) { ctx.fillStyle = '#fff'; ctx.fillRect(e.x+8,e.y-4,6,2) }
+      const y = e.y + (e.diveOffset || 0)
+      ctx.fillStyle = e.kind === 'attacker' ? '#c58aff' : e.kind === 'fast' ? '#8dff9b' : COLORS[e.row % 3]
+      ctx.fillRect(e.x+5,y,12,4); ctx.fillRect(e.x+2,y+4,18,5); ctx.fillRect(e.x,y+9,22,5)
+      ctx.fillRect(e.x+3,y+14,5,4); ctx.fillRect(e.x+14,y+14,5,4)
+      ctx.fillStyle = '#08111f'; ctx.fillRect(e.x+6,y+7,3,3); ctx.fillRect(e.x+14,y+7,3,3)
+      if (e.kind !== 'normal') {
+        ctx.strokeStyle = e.kind === 'attacker' ? '#f0d8ff' : '#d9ffe0'
+        ctx.lineWidth = 1; ctx.strokeRect(e.x+1,y+1,20,16)
+      }
+      if (e.hp > 1) { ctx.fillStyle = '#fff'; ctx.fillRect(e.x+8,y-4,6,2) }
     }
     const burst = (x, y, color, count = 9) => {
       for (let i=0;i<count;i++) {
@@ -223,7 +229,24 @@ export default function App() {
           s.enemies.forEach(e=>{
             if(!e.alive)return
             any=true
-            e.x+=s.direction*s.currentEnemySpeed*dt
+            const speedFactor = e.kind === 'fast' ? 1.65 : 1
+            e.x+=s.direction*s.currentEnemySpeed*speedFactor*dt
+            if (e.kind === 'attacker') {
+              if (e.diveState === 'waiting') {
+                e.diveTimer -= dt
+                if (e.diveTimer <= 0) e.diveState = 'diving'
+              } else if (e.diveState === 'diving') {
+                e.diveOffset = Math.min(82, e.diveOffset + 125 * dt)
+                e.x += Math.sign((p.x + p.w / 2) - (e.x + e.w / 2)) * 42 * dt
+                if (e.diveOffset >= 82) e.diveState = 'rising'
+              } else {
+                e.diveOffset = Math.max(0, e.diveOffset - 105 * dt)
+                if (e.diveOffset <= 0) {
+                  e.diveState = 'waiting'
+                  e.diveTimer = 3.5 + (e.row % 3) * .7
+                }
+              }
+            }
             minX=Math.min(minX,e.x)
             maxX=Math.max(maxX,e.x+e.w)
           })
@@ -234,7 +257,7 @@ export default function App() {
         }
         if(time-s.lastEnemyShot>Math.max(420,1450-s.level*65)){
           const shooters=s.enemies.filter(e=>e.alive)
-          if(shooters.length){const e=shooters[Math.floor(Math.random()*shooters.length)];s.enemyBullets.push({x:e.x+10,y:e.y+18,w:4,h:10})}
+          if(shooters.length){const e=shooters[Math.floor(Math.random()*shooters.length)];s.enemyBullets.push({x:e.x+10,y:e.y+(e.diveOffset||0)+18,w:4,h:10})}
           s.lastEnemyShot=time
         }
         s.enemies.forEach(e=>{if(e.alive)drawEnemy(e)})
@@ -245,8 +268,8 @@ export default function App() {
           b.y=-30;s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
           if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
         } else s.enemies.forEach(e=>{
-          if(e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){
-            b.y=-30;e.hp--;burst(e.x+11,e.y+9,COLORS[e.row%3],4)
+          if(e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+(e.diveOffset||0)+e.h&&b.y+b.h>e.y+(e.diveOffset||0)){
+            b.y=-30;e.hp--;burst(e.x+11,e.y+(e.diveOffset||0)+9,COLORS[e.row%3],4)
             if(e.hp<=0){e.alive=false;award(e.row===0?30:e.row===1?20:10);spawnDrop(e.x,e.y);beep(300+e.row*80,.055)}
           }
         })
@@ -275,7 +298,7 @@ export default function App() {
       s.enemyBullets.forEach(b=>{ctx.fillStyle='#ff6384';ctx.fillRect(b.x,b.y,b.w,b.h)})
       s.bullets.forEach(b=>{ctx.fillStyle='#fff2a6';ctx.shadowColor='#ffd166';ctx.shadowBlur=9;ctx.fillRect(b.x,b.y,b.w,b.h);ctx.shadowBlur=0})
       if(!s.boss&&s.enemies.every(e=>!e.alive))nextWave()
-      if(!s.boss&&s.enemies.some(e=>e.alive&&e.y+e.h>p.y-8))finishGame()
+      if(!s.boss&&s.enemies.some(e=>e.alive&&e.y+(e.diveOffset||0)+e.h>p.y-8))finishGame()
       if(time-s.lastHud>140){s.lastHud=time;setHud({score:s.score,level:s.level,lives:s.lives,combo:s.combo,power:s.power})}
       if(alive&&screen==='playing'&&s.lives>0)raf=requestAnimationFrame(loop)
     }
