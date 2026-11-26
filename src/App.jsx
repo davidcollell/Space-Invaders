@@ -264,7 +264,7 @@ export default function App() {
       }
       // Player shots hit enemies or boss
       s.bullets.forEach(b=>{
-        if(s.boss && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
+        if(s.boss && (!b.hitIds || !b.hitIds.includes('boss')) && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
           if(!b.pierce)b.y=-30;else {b.hitIds.push('boss');b.y-=1} s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
           if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
         } else s.enemies.forEach(e=>{
