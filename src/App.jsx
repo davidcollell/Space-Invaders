@@ -127,22 +127,39 @@ export default function App() {
     if (!s) return
     let raf, alive = true
     const drawShip = (x, y, w, h, shielded) => {
-      if (shielded) { ctx.strokeStyle = '#70edff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+w/2,y+h/2,23,0,Math.PI*2); ctx.stroke() }
-      ctx.fillStyle = '#72f1ff'
-      ctx.fillRect(x+w/2-3,y,6,7); ctx.fillRect(x+4,y+7,w-8,9); ctx.fillRect(x,y+15,w,7)
-      ctx.fillStyle = '#eaffff'; ctx.fillRect(x+w/2-1,y+3,2,5)
+      ctx.save()
+      const cx=x+w/2
+      if (shielded) {
+        const aura=ctx.createRadialGradient(cx,y+h/2,8,cx,y+h/2,31)
+        aura.addColorStop(0,'rgba(60,235,255,.05)');aura.addColorStop(1,'rgba(60,235,255,0)')
+        ctx.fillStyle=aura;ctx.beginPath();ctx.arc(cx,y+h/2,31,0,Math.PI*2);ctx.fill()
+        ctx.strokeStyle='#8ff8ff';ctx.lineWidth=2;ctx.shadowColor='#35eaff';ctx.shadowBlur=18
+        ctx.beginPath();ctx.arc(cx,y+h/2,25,0,Math.PI*2);ctx.stroke()
+      }
+      ctx.shadowColor='#26eaff';ctx.shadowBlur=17
+      const hull=ctx.createLinearGradient(x,y,x,y+h)
+      hull.addColorStop(0,'#f3ffff');hull.addColorStop(.28,'#78f4ff');hull.addColorStop(1,'#1689c9')
+      ctx.fillStyle=hull
+      ctx.beginPath();ctx.moveTo(cx,y-5);ctx.lineTo(x+w-1,y+h-2);ctx.lineTo(x+w-8,y+h-2);ctx.lineTo(cx,y+h-8);ctx.lineTo(x+8,y+h-2);ctx.lineTo(x+1,y+h-2);ctx.closePath();ctx.fill()
+      ctx.fillStyle='#ffffff';ctx.fillRect(cx-2,y+3,4,9)
+      ctx.fillStyle='#ffcf70';ctx.shadowColor='#ff8c42';ctx.shadowBlur=12
+      ctx.beginPath();ctx.moveTo(cx-4,y+h-3);ctx.lineTo(cx,y+h+8+Math.random()*4);ctx.lineTo(cx+4,y+h-3);ctx.fill()
+      ctx.restore()
     }
     const drawEnemy = e => {
-      const y = e.y + (e.diveOffset || 0)
-      ctx.fillStyle = e.kind === 'attacker' ? '#c58aff' : e.kind === 'fast' ? '#8dff9b' : COLORS[e.row % 3]
-      ctx.fillRect(e.x+5,y,12,4); ctx.fillRect(e.x+2,y+4,18,5); ctx.fillRect(e.x,y+9,22,5)
-      ctx.fillRect(e.x+3,y+14,5,4); ctx.fillRect(e.x+14,y+14,5,4)
-      ctx.fillStyle = '#08111f'; ctx.fillRect(e.x+6,y+7,3,3); ctx.fillRect(e.x+14,y+7,3,3)
-      if (e.kind !== 'normal') {
-        ctx.strokeStyle = e.kind === 'attacker' ? '#f0d8ff' : '#d9ffe0'
-        ctx.lineWidth = 1; ctx.strokeRect(e.x+1,y+1,20,16)
-      }
-      if (e.hp > 1) { ctx.fillStyle = '#fff'; ctx.fillRect(e.x+8,y-4,6,2) }
+      const y=e.y+(e.diveOffset||0)
+      const color=e.kind==='attacker'?'#d18aff':e.kind==='fast'?'#8dff9b':COLORS[e.row%3]
+      ctx.save();ctx.shadowColor=color;ctx.shadowBlur=12
+      const g=ctx.createLinearGradient(e.x,y,e.x,y+20)
+      g.addColorStop(0,'#ffffff');g.addColorStop(.22,color);g.addColorStop(1,color)
+      ctx.fillStyle=g
+      ctx.beginPath();ctx.moveTo(e.x+5,y);ctx.lineTo(e.x+17,y);ctx.lineTo(e.x+20,y+5);ctx.lineTo(e.x+22,y+14);ctx.lineTo(e.x+17,y+14);ctx.lineTo(e.x+17,y+19);ctx.lineTo(e.x+13,y+19);ctx.lineTo(e.x+11,y+15);ctx.lineTo(e.x+9,y+19);ctx.lineTo(e.x+5,y+19);ctx.lineTo(e.x+5,y+14);ctx.lineTo(e.x,y+14);ctx.lineTo(e.x+2,y+5);ctx.closePath();ctx.fill()
+      ctx.shadowBlur=0;ctx.fillStyle='#071020'
+      ctx.fillRect(e.x+5,y+7,4,4);ctx.fillRect(e.x+14,y+7,4,4)
+      ctx.fillStyle='#ffffff';ctx.fillRect(e.x+6,y+7,2,2);ctx.fillRect(e.x+15,y+7,2,2)
+      if(e.kind!=='normal'){ctx.strokeStyle='#ffffffaa';ctx.lineWidth=1;ctx.strokeRect(e.x+1,y+1,20,17)}
+      if(e.hp>1){ctx.fillStyle='#fff';ctx.fillRect(e.x+7,y-5,8,2)}
+      ctx.restore()
     }
     const drawPowerUp = d => {
       const colors = { triple: '#ffd166', laser: '#55eaff', bomb: '#ff884d', shield: '#69e6ff', rapid: '#a7ff8a', double: '#ffe18a', life: '#ff6c9a' }
@@ -217,8 +234,21 @@ export default function App() {
       if (!alive) return
       const dt = Math.min((time-(s.lastTime || time))/1000,.035)
       s.lastTime = time; s.elapsed += dt
-      ctx.fillStyle = '#050914'; ctx.fillRect(0,0,W,H)
-      s.stars.forEach(st => { st.y += (12+st.s*12)*dt; if(st.y>H){st.y=0;st.x=Math.random()*W};ctx.fillStyle=`rgba(160,205,255,${.2+st.s/3})`;ctx.fillRect(st.x,st.y,st.s,st.s) })
+      const space=ctx.createLinearGradient(0,0,W,H)
+      space.addColorStop(0,'#080d25');space.addColorStop(.48,'#101432');space.addColorStop(1,'#07152b')
+      ctx.fillStyle=space;ctx.fillRect(0,0,W,H)
+      const nebula=ctx.createRadialGradient(180,235,8,180,235,225)
+      nebula.addColorStop(0,'rgba(74,43,145,.25)');nebula.addColorStop(.55,'rgba(20,100,150,.10)');nebula.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=nebula;ctx.fillRect(0,0,W,H)
+      s.stars.forEach(st=>{
+        st.y+=(12+st.s*15)*dt;if(st.y>H){st.y=0;st.x=Math.random()*W}
+        const alpha=.25+st.s/3
+        ctx.fillStyle=`rgba(180,225,255,${alpha})`;ctx.fillRect(st.x,st.y,st.s,st.s)
+        if(st.s>1.7){ctx.fillStyle=`rgba(100,210,255,${alpha*.22})`;ctx.fillRect(st.x-2,st.y-2,st.s+4,st.s+4)}
+      })
+      ctx.save();ctx.strokeStyle='rgba(83,151,210,.12)';ctx.lineWidth=1
+      for(let y=0;y<H;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+      ctx.restore()
       const p=s.player
       if(keys.current.left) p.x-=220*dt
       if(keys.current.right) p.x+=220*dt
@@ -234,15 +264,26 @@ export default function App() {
       s.enemyBullets.forEach(b=>b.y+=190*dt); s.enemyBullets=s.enemyBullets.filter(b=>b.y<H+10)
       s.shields.forEach(sh=>{
         if(sh.hp<=0)return
-        ctx.fillStyle=`rgba(105,230,255,${.18+sh.hp*.07})`;ctx.fillRect(sh.x,sh.y,sh.w,9)
-        ctx.fillRect(sh.x+5,sh.y-5,sh.w-10,5)
+        ctx.save();ctx.shadowColor='#46eaff';ctx.shadowBlur=13
+        const sg=ctx.createLinearGradient(sh.x,sh.y,sh.x,sh.y+14)
+        sg.addColorStop(0,'#b9ffff');sg.addColorStop(.4,'#4bdfff');sg.addColorStop(1,'#1768b5')
+        ctx.fillStyle=sg;ctx.globalAlpha=.45+sh.hp*.1
+        ctx.beginPath();ctx.moveTo(sh.x+4,sh.y+10);ctx.lineTo(sh.x+8,sh.y);ctx.lineTo(sh.x+sh.w-8,sh.y);ctx.lineTo(sh.x+sh.w-4,sh.y+10);ctx.closePath();ctx.fill()
+        ctx.restore()
       })
       if(s.boss){
         const b=s.boss; b.x+=b.dir*(48+s.level*2)*dt
         if(b.x<12||b.x+b.w>W-12)b.dir*=-1
-        ctx.fillStyle='#ff5c8a';ctx.fillRect(b.x+15,b.y,b.w-30,12);ctx.fillRect(b.x+5,b.y+12,b.w-10,20);ctx.fillRect(b.x,b.y+32,b.w,12)
-        ctx.fillStyle='#08111f';ctx.fillRect(b.x+25,b.y+16,12,7);ctx.fillRect(b.x+b.w-37,b.y+16,12,7)
-        ctx.fillStyle='#52213e';ctx.fillRect(55,24,250,7);ctx.fillStyle='#ff5c8a';ctx.fillRect(55,24,250*(b.hp/b.maxHp),7)
+        ctx.save();ctx.shadowColor='#ff397f';ctx.shadowBlur=22
+        const bg=ctx.createLinearGradient(b.x,b.y,b.x,b.y+b.h)
+        bg.addColorStop(0,'#ffd0f0');bg.addColorStop(.25,'#ff5c9c');bg.addColorStop(1,'#8d236d')
+        ctx.fillStyle=bg
+        ctx.beginPath();ctx.moveTo(b.x+25,b.y);ctx.lineTo(b.x+b.w-25,b.y);ctx.lineTo(b.x+b.w-8,b.y+15);ctx.lineTo(b.x+b.w,b.y+39);ctx.lineTo(b.x+b.w-17,b.y+44);ctx.lineTo(b.x+17,b.y+44);ctx.lineTo(b.x,b.y+39);ctx.lineTo(b.x+8,b.y+15);ctx.closePath();ctx.fill()
+        ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.fillRect(b.x+27,b.y+16,15,8);ctx.fillRect(b.x+b.w-42,b.y+16,15,8)
+        ctx.fillStyle='#27102e';ctx.fillRect(b.x+31,b.y+18,7,5);ctx.fillRect(b.x+b.w-38,b.y+18,7,5)
+        ctx.fillStyle='#ffe18a';ctx.fillRect(b.x+48,b.y+33,12,4);ctx.fillRect(b.x+b.w-60,b.y+33,12,4)
+        ctx.restore()
+        ctx.save();ctx.fillStyle='#35133c';ctx.fillRect(45,22,270,9);ctx.fillStyle='#ff5c8a';ctx.shadowColor='#ff4c9a';ctx.shadowBlur=10;ctx.fillRect(45,22,270*(b.hp/b.maxHp),9);ctx.strokeStyle='#ffd5ef';ctx.strokeRect(45,22,270,9);ctx.restore()
         if(time-b.shotAt>850){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
       } else {
         let minX=W,maxX=0,any=false
@@ -338,7 +379,11 @@ export default function App() {
         ctx.restore()
       })
       s.effects=s.effects.filter(fx=>fx.life>0)
-      s.enemyBullets.forEach(b=>{ctx.fillStyle='#ff6384';ctx.fillRect(b.x,b.y,b.w,b.h)})
+      s.enemyBullets.forEach(b=>{
+        ctx.save();ctx.shadowColor='#ff4d8d';ctx.shadowBlur=14
+        ctx.fillStyle='#ff5d91';ctx.beginPath();ctx.ellipse(b.x+b.w/2,b.y+b.h/2,b.w/2+1,b.h/2+2,0,0,Math.PI*2);ctx.fill()
+        ctx.fillStyle='#ffe6f2';ctx.fillRect(b.x+b.w/2-1,b.y+2,2,4);ctx.restore()
+      })
       s.bullets.forEach(b=>{
         if(b.pierce){
           ctx.save();ctx.shadowColor='#36eaff';ctx.shadowBlur=20
