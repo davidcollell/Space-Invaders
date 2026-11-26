@@ -102,7 +102,7 @@ export default function App() {
     keys.current = { left: false, right: false, fire: false }
     gameRef.current = {
       player: { x: W / 2 - 15, y: H - 58, w: 30, h: 22, invulnerable: 1.2 },
-      enemies: makeWave(1), boss: null, bullets: [], enemyBullets: [], particles: [], drops: [],
+      enemies: makeWave(1), boss: null, bullets: [], enemyBullets: [], particles: [], drops: [], effects: [],
       shields: [0, 1, 2].map(i => ({ x: 36 + i * 112, y: 405, w: 42, hp: 5 })),
       direction: 1, enemySpeed: 26, currentEnemySpeed: 26, descentRemaining: 0, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
       elapsed: 0, stars: Array.from({ length: 75 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.7 + .4 })),
@@ -143,6 +143,35 @@ export default function App() {
         ctx.lineWidth = 1; ctx.strokeRect(e.x+1,y+1,20,16)
       }
       if (e.hp > 1) { ctx.fillStyle = '#fff'; ctx.fillRect(e.x+8,y-4,6,2) }
+    }
+    const drawPowerUp = d => {
+      const colors = { triple: '#ffd166', laser: '#55eaff', bomb: '#ff884d', shield: '#69e6ff', rapid: '#a7ff8a', double: '#ffe18a', life: '#ff6c9a' }
+      const color = colors[d.type] || '#ffe18a'
+      const cx = d.x + 8, cy = d.y + 8
+      ctx.save()
+      ctx.shadowColor = color; ctx.shadowBlur = 13
+      ctx.fillStyle = '#091426'; ctx.strokeStyle = color; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.roundRect(d.x, d.y, 16, 16, 4); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur = 0; ctx.fillStyle = color
+      if (d.type === 'triple') {
+        ctx.fillRect(cx-1,cy-6,2,12); ctx.fillRect(cx-5,cy-3,2,9); ctx.fillRect(cx+3,cy-3,2,9)
+        ctx.fillRect(cx-7,cy+4,4,2); ctx.fillRect(cx+3,cy+4,4,2)
+      } else if (d.type === 'laser') {
+        ctx.fillRect(cx-2,cy-6,4,12); ctx.fillRect(cx-5,cy-2,2,6); ctx.fillRect(cx+3,cy-2,2,6)
+        ctx.fillStyle = '#efffff'; ctx.fillRect(cx-1,cy-5,2,9)
+      } else if (d.type === 'bomb') {
+        ctx.beginPath(); ctx.arc(cx,cy+1,5,0,Math.PI*2); ctx.fill()
+        ctx.strokeStyle = '#ffe4a8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx+2,cy-4); ctx.lineTo(cx+5,cy-7); ctx.stroke()
+        ctx.fillStyle = '#fff3c4'; ctx.fillRect(cx+4,cy-8,2,2)
+      } else if (d.type === 'shield') {
+        ctx.beginPath(); ctx.moveTo(cx,cy-6); ctx.lineTo(cx+5,cy-3); ctx.lineTo(cx+4,cy+3); ctx.lineTo(cx,cy+6); ctx.lineTo(cx-4,cy+3); ctx.lineTo(cx-5,cy-3); ctx.closePath(); ctx.fill()
+      } else if (d.type === 'life') {
+        ctx.font = 'bold 15px sans-serif'; ctx.fillText('♥',cx-7,cy+5)
+      } else {
+        ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(d.type === 'rapid' ? 'R' : '2',cx,cy+1)
+      }
+      ctx.restore()
     }
     const burst = (x, y, color, count = 9) => {
       for (let i=0;i<count;i++) {
@@ -280,13 +309,14 @@ export default function App() {
       })
       s.bullets.forEach(b=>s.shields.forEach(sh=>{if(sh.hp>0&&b.x<sh.x+sh.w&&b.x+b.w>sh.x&&b.y<sh.y+14&&b.y+b.h>sh.y){b.y=-30;sh.hp--}}))
       s.drops.forEach(d=>{
-        d.y+=d.vy*dt;ctx.fillStyle=d.type==='life'?'#ff6c8a':d.type==='shield'?'#69e6ff':d.type==='bomb'?'#ff884d':'#ffe18a'
-        ctx.fillRect(d.x,d.y,16,16);ctx.fillStyle='#07101d';ctx.font='bold 11px sans-serif';ctx.fillText(d.type==='life'?'♥':d.type==='shield'?'S':d.type==='double'?'2':d.type==='triple'?'3':d.type==='laser'?'L':d.type==='bomb'?'B':'R',d.x+4,d.y+12)
+        d.y+=d.vy*dt;drawPowerUp(d)
         if(d.x<p.x+p.w&&d.x+16>p.x&&d.y<p.y+p.h&&d.y+16>p.y){
           d.y=H+20
           if(d.type==='life')s.lives=Math.min(5,s.lives+1)
           else {s.power=d.type;s.powerUntil=s.elapsed+8}
           if(d.type==='bomb'){
+            s.effects.push({type:'bomb',x:W/2,y:H/2,r:12,life:.58,max:.58})
+            burst(p.x+p.w/2,p.y+8,'#ff9a4d',30)
             s.enemies.forEach(e=>{if(e.alive){e.alive=false;burst(e.x+11,e.y+9,'#ffe18a',8);award(e.row===0?30:e.row===1?20:10)}})
             if(s.boss){s.boss.hp-=8;burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ffe18a',18);if(s.boss.hp<=0){s.boss=null;award(500)}}
           }
@@ -299,8 +329,30 @@ export default function App() {
       if(s.elapsed>s.comboUntil)s.combo=0
       s.particles.forEach(pt=>{pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.life-=dt;ctx.globalAlpha=clamp(pt.life/pt.max,0,1);ctx.fillStyle=pt.color;ctx.fillRect(pt.x,pt.y,pt.size,pt.size)})
       ctx.globalAlpha=1;s.particles=s.particles.filter(pt=>pt.life>0)
+      s.effects.forEach(fx=>{
+        fx.life-=dt; fx.r+=520*dt
+        const alpha=clamp(fx.life/fx.max,0,1)
+        ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle='#ff9b4d';ctx.lineWidth=5;ctx.shadowColor='#ff6b35';ctx.shadowBlur=24
+        ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r,0,Math.PI*2);ctx.stroke()
+        ctx.strokeStyle='#ffe7a3';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r*.72,0,Math.PI*2);ctx.stroke()
+        ctx.restore()
+      })
+      s.effects=s.effects.filter(fx=>fx.life>0)
       s.enemyBullets.forEach(b=>{ctx.fillStyle='#ff6384';ctx.fillRect(b.x,b.y,b.w,b.h)})
-      s.bullets.forEach(b=>{ctx.fillStyle='#fff2a6';ctx.shadowColor='#ffd166';ctx.shadowBlur=9;ctx.fillRect(b.x,b.y,b.w,b.h);ctx.shadowBlur=0})
+      s.bullets.forEach(b=>{
+        if(b.pierce){
+          ctx.save();ctx.shadowColor='#36eaff';ctx.shadowBlur=20
+          ctx.fillStyle='#31dfff';ctx.fillRect(b.x-3,b.y-2,b.w+6,b.h+4)
+          ctx.fillStyle='#eaffff';ctx.fillRect(b.x+2,b.y,b.w-4,b.h)
+          ctx.fillStyle='#70f4ff';ctx.fillRect(b.x+1,b.y+b.h-5,b.w-2,5)
+          ctx.restore()
+        } else {
+          ctx.save();ctx.shadowColor='#ffd166';ctx.shadowBlur=10
+          ctx.fillStyle='#fff2a6';ctx.fillRect(b.x,b.y,b.w,b.h)
+          ctx.fillStyle='#ffffff';ctx.fillRect(b.x+1,b.y+1,2,Math.max(3,b.h-3))
+          ctx.restore()
+        }
+      })
       if(!s.boss&&s.enemies.every(e=>!e.alive))nextWave()
       if(!s.boss&&s.enemies.some(e=>e.alive&&e.y+(e.diveOffset||0)+e.h>p.y-8))finishGame()
       if(time-s.lastHud>140){s.lastHud=time;setHud({score:s.score,level:s.level,lives:s.lives,combo:s.combo,power:s.power})}
