@@ -443,8 +443,13 @@ export default function App() {
     </header>
     {screen==='menu'&&<section className="menu-screen">
       <div className="eyebrow">1980 · ARCADE CLASSIC</div><h1>SPACE<br/><span>INVADERS</span></h1>
-      <div className="hero-aliens"><span>▥</span><span>▥</span><span>▥</span><span>▥</span><span>▥</span></div>
-      <div className="ship-art">▲</div><button className="primary" onClick={startGame}>▶ &nbsp; JUGAR</button>
+      <div className="hero-scene" aria-hidden="true">
+        <div className="hero-planet"><i></i></div>
+        <div className="hero-orbit"></div>
+        <div className="hero-aliens"><span>✦</span><span>✹</span><span>✦</span><span>✹</span><span>✦</span></div>
+        <div className="ship-art"><span className="ship-flame"></span><span className="ship-hull">▲</span></div>
+        <span className="scene-spark spark-one">✧</span><span className="scene-spark spark-two">✦</span><span className="scene-spark spark-three">·</span>
+      </div><button className="primary" onClick={startGame}>▶ &nbsp; JUGAR</button>
       <div className="best-score">RÈCORD PERSONAL <strong>{String(best).padStart(6,'0')}</strong></div>
       <p className="hint">Destrueix els invasors i protegeix la Terra</p><p className="menu-tip">RECOLLIR BONUS · COMBO x2 · CAP CADA 5 NIVELLS</p>
       <div className="menu-footer">INSERT COIN · PRESS START</div>
