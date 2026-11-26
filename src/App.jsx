@@ -170,7 +170,7 @@ export default function App() {
     }
     const spawnDrop = (x,y) => {
       if (Math.random() < .17) {
-        const types = ['rapid','double','shield','life']
+        const types = ['rapid','double','triple','laser','bomb','shield','life']
         const type = types[Math.floor(Math.random()*types.length)]
         s.drops.push({ x, y, type, vy: 70 })
       }
@@ -197,8 +197,8 @@ export default function App() {
       if(p.invulnerable>0) p.invulnerable-=dt
       drawShip(p.x,p.y,p.w,p.h,s.power==='shield')
       if(keys.current.fire && time-s.lastShot>(s.power==='rapid'?115:260)){
-        const offsets=s.power==='double'?[-8,8]:[0]
-        offsets.forEach(o=>s.bullets.push({x:p.x+p.w/2-2+o,y:p.y-9,w:4,h:12}))
+        const offsets=s.power==='triple'?[-10,0,10]:s.power==='double'?[-8,8]:[0]
+        offsets.forEach(o=>s.bullets.push({x:p.x+p.w/2-2+o,y:p.y-9,w:s.power==='laser'?8:4,h:s.power==='laser'?24:12,pierce:s.power==='laser',hitIds:[]}))
         s.lastShot=time; if(!muted) beep(520,.035)
       }
       s.bullets.forEach(b=>b.y-=410*dt); s.bullets=s.bullets.filter(b=>b.y>-15)
@@ -265,11 +265,11 @@ export default function App() {
       // Player shots hit enemies or boss
       s.bullets.forEach(b=>{
         if(s.boss && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
-          b.y=-30;s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
+          if(!b.pierce)b.y=-30;else {b.hitIds.push('boss');b.y-=1} s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
           if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
         } else s.enemies.forEach(e=>{
-          if(e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+(e.diveOffset||0)+e.h&&b.y+b.h>e.y+(e.diveOffset||0)){
-            b.y=-30;e.hp--;burst(e.x+11,e.y+(e.diveOffset||0)+9,COLORS[e.row%3],4)
+          if(e.alive&&(!b.hitIds||!b.hitIds.includes(e))&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+(e.diveOffset||0)+e.h&&b.y+b.h>e.y+(e.diveOffset||0)){
+            if(!b.pierce)b.y=-30;else b.hitIds.push(e);e.hp--;burst(e.x+11,e.y+(e.diveOffset||0)+9,COLORS[e.row%3],4)
             if(e.hp<=0){e.alive=false;award(e.row===0?30:e.row===1?20:10);spawnDrop(e.x,e.y);beep(300+e.row*80,.055)}
           }
         })
@@ -280,13 +280,17 @@ export default function App() {
       })
       s.bullets.forEach(b=>s.shields.forEach(sh=>{if(sh.hp>0&&b.x<sh.x+sh.w&&b.x+b.w>sh.x&&b.y<sh.y+14&&b.y+b.h>sh.y){b.y=-30;sh.hp--}}))
       s.drops.forEach(d=>{
-        d.y+=d.vy*dt;ctx.fillStyle=d.type==='life'?'#ff6c8a':d.type==='shield'?'#69e6ff':'#ffe18a'
-        ctx.fillRect(d.x,d.y,16,16);ctx.fillStyle='#07101d';ctx.font='bold 11px sans-serif';ctx.fillText(d.type==='life'?'♥':d.type==='shield'?'S':d.type==='double'?'2':'R',d.x+4,d.y+12)
+        d.y+=d.vy*dt;ctx.fillStyle=d.type==='life'?'#ff6c8a':d.type==='shield'?'#69e6ff':d.type==='bomb'?'#ff884d':'#ffe18a'
+        ctx.fillRect(d.x,d.y,16,16);ctx.fillStyle='#07101d';ctx.font='bold 11px sans-serif';ctx.fillText(d.type==='life'?'♥':d.type==='shield'?'S':d.type==='double'?'2':d.type==='triple'?'3':d.type==='laser'?'L':d.type==='bomb'?'B':'R',d.x+4,d.y+12)
         if(d.x<p.x+p.w&&d.x+16>p.x&&d.y<p.y+p.h&&d.y+16>p.y){
           d.y=H+20
           if(d.type==='life')s.lives=Math.min(5,s.lives+1)
           else {s.power=d.type;s.powerUntil=s.elapsed+8}
-          setLives(s.lives);setNotice(d.type==='life'?'VIDA +1':d.type==='shield'?'ESCUT ACTIVAT':d.type==='double'?'DISPAR DOBLE':'DISPAR RÀPID')
+          if(d.type==='bomb'){
+            s.enemies.forEach(e=>{if(e.alive){e.alive=false;burst(e.x+11,e.y+9,'#ffe18a',8);award(e.row===0?30:e.row===1?20:10)}})
+            if(s.boss){s.boss.hp-=8;burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ffe18a',18);if(s.boss.hp<=0){s.boss=null;award(500)}}
+          }
+          setLives(s.lives);setNotice(d.type==='life'?'VIDA +1':d.type==='shield'?'ESCUT ACTIVAT':d.type==='double'?'DISPAR DOBLE':d.type==='triple'?'DISPAR TRIPLE':d.type==='laser'?'LÀSER ACTIVAT':d.type==='bomb'?'BOMBA!':'DISPAR RÀPID')
           setTimeout(()=>setNotice(''),1100);beep(880,.12,'triangle')
         }
       })
