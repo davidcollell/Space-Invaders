@@ -216,7 +216,7 @@ export default function App() {
       if (p.invulnerable > 0 || s.power === 'shield') return
       s.lives--; p.invulnerable = 1.5; p.x = W/2-p.w/2
       s.combo = 0; beep(130,.18,'sawtooth')
-      if (navigator.vibrate) navigator.vibrate(90)
+      if (navigator.vibrate) navigator.vibrate(45)
       setLives(s.lives); setHud(v => ({ ...v, lives: s.lives, combo: 0 }))
       if (s.lives <= 0) finishGame()
     }
