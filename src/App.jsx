@@ -25,7 +25,7 @@ const makeWave = level => {
     return { x, y, baseX: x, baseY: y, w: 22, h: 19, row, col, kind, formation, squad, diveOffset: 0, diveState: 'waiting', diveTimer: 2.5 + (i % 7) * .55, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
   })
 }
-const makeBoss = level => ({ x: 126, y: 55, w: 108, h: 48, hp: 18 + level * 3, maxHp: 18 + level * 3, dir: 1, shotAt: 0 })
+const makeBoss = level => ({ x: 126, y: 55, w: 108, h: 48, hp: 18 + level * 3, maxHp: 18 + level * 3, dir: 1, shotAt: 0, entry: 1.25 })
 
 export default function App() {
   const canvasRef = useRef(null)
@@ -241,8 +241,10 @@ export default function App() {
       s.player.invulnerable = 1.8
       if (s.level % 5 === 0) s.boss = makeBoss(s.level)
       else { s.boss = null; s.enemies = makeWave(s.level); s.enemySpeed = 26 + s.level * 5; s.currentEnemySpeed = s.enemySpeed }
-      setLevel(s.level); setNotice(s.level % 5 === 0 ? 'CAP FINAL!' : `NIVELL ${s.level}`)
-      setTimeout(() => setNotice(''), 1300)
+      setLevel(s.level); setNotice(s.level % 5 === 0 ? 'CAP FINAL!' : (s.level % 3 === 0 ? 'ALERTA: ONADA PERILLOSA' : `NIVELL ${s.level}`))
+      s.effects.push({ type: 'alert', label: s.level % 5 === 0 ? 'CAP FINAL' : (s.level % 3 === 0 ? 'ONADA PERILLOSA' : `NIVELL ${s.level}`), color: s.level % 5 === 0 ? '#ff77bd' : '#72eaff', life: 1.35, max: 1.35 })
+      if(s.level % 5 === 0){s.effects.push({type:'flash',x:W/2,y:90,color:'#ff75c7',r:150,life:.42,max:.42});s.shake=Math.max(s.shake,4)}
+      setTimeout(() => setNotice(''), 1500)
       beep(660,.12); setTimeout(() => beep(880,.14),130)
     }
     const loop = time => {
@@ -252,18 +254,26 @@ export default function App() {
       s.shake = Math.max(0, s.shake - dt * 34)
       ctx.save()
       if (s.shake > 0) ctx.translate((Math.random()-.5)*s.shake, (Math.random()-.5)*s.shake)
+      const atmospheres = [
+        ['#080d25','#101432','#07152b','#5335a6','#196fa6'],
+        ['#071b2b','#102b43','#07152b','#176b91','#2879a8'],
+        ['#190d2c','#2b1740','#100b25','#873f9d','#4d3b9c'],
+        ['#241027','#3a1836','#120d28','#a33d70','#563a9e'],
+        ['#081e2b','#103c46','#07152b','#238b9b','#4264b5']
+      ]
+      const atmosphere = atmospheres[Math.floor((s.level - 1) / 2) % atmospheres.length]
       const space=ctx.createLinearGradient(0,0,W,H)
-      space.addColorStop(0,'#080d25');space.addColorStop(.48,'#101432');space.addColorStop(1,'#07152b')
+      space.addColorStop(0,atmosphere[0]);space.addColorStop(.48,atmosphere[1]);space.addColorStop(1,atmosphere[2])
       ctx.fillStyle=space;ctx.fillRect(0,0,W,H)
       const nebulaX = 180 + Math.sin(s.elapsed * .13) * 105
       const nebulaY = 230 + Math.cos(s.elapsed * .1) * 85
       const nebula=ctx.createRadialGradient(nebulaX,nebulaY,8,nebulaX,nebulaY,235)
-      nebula.addColorStop(0,'rgba(83,53,166,.24)');nebula.addColorStop(.48,'rgba(25,111,166,.11)');nebula.addColorStop(1,'rgba(0,0,0,0)')
+      nebula.addColorStop(0,atmosphere[3]+'55');nebula.addColorStop(.48,atmosphere[4]+'22');nebula.addColorStop(1,'rgba(0,0,0,0)')
       ctx.fillStyle=nebula;ctx.fillRect(0,0,W,H)
       const distantX = 45 + Math.cos(s.elapsed * .09) * 95
       const distantY = 390 + Math.sin(s.elapsed * .12) * 70
       const distantNebula=ctx.createRadialGradient(distantX,distantY,4,distantX,distantY,155)
-      distantNebula.addColorStop(0,'rgba(30,151,174,.13)');distantNebula.addColorStop(1,'rgba(0,0,0,0)')
+      distantNebula.addColorStop(0,atmosphere[4]+'30');distantNebula.addColorStop(1,'rgba(0,0,0,0)')
       ctx.fillStyle=distantNebula;ctx.fillRect(0,0,W,H)
       s.starLayers.forEach((layer,index)=>{
         layer.stars.forEach(st=>{
@@ -303,12 +313,17 @@ export default function App() {
         ctx.restore()
       })
       if(s.boss){
-        const b=s.boss; b.x+=b.dir*(48+s.level*2)*dt
+        const b=s.boss
+        if(b.entry>0)b.entry=Math.max(0,b.entry-dt)
+        const bossY=b.y-70*(b.entry/1.25)
+        b.x+=b.dir*(48+s.level*2)*dt
         if(b.x<12||b.x+b.w>W-12)b.dir*=-1
         ctx.save();ctx.shadowColor='#ff397f';ctx.shadowBlur=22
-        const bg=ctx.createLinearGradient(b.x,b.y,b.x,b.y+b.h)
+        const bg=ctx.createLinearGradient(b.x,bossY,b.x,bossY+b.h)
         bg.addColorStop(0,'#ffd0f0');bg.addColorStop(.25,'#ff5c9c');bg.addColorStop(1,'#8d236d')
         ctx.fillStyle=bg
+        ctx.translate(0,bossY-b.y)
+        if(b.entry>0){ctx.globalAlpha=1-b.entry/1.7;ctx.strokeStyle='#ffb7e5';ctx.lineWidth=2;ctx.shadowColor='#ff5cba';ctx.shadowBlur=22;ctx.beginPath();ctx.ellipse(b.x+b.w/2,b.y+b.h/2+12,65+(1.25-b.entry)*28,16+(1.25-b.entry)*8,0,0,Math.PI*2);ctx.stroke()}
         ctx.beginPath();ctx.moveTo(b.x+25,b.y);ctx.lineTo(b.x+b.w-25,b.y);ctx.lineTo(b.x+b.w-8,b.y+15);ctx.lineTo(b.x+b.w,b.y+39);ctx.lineTo(b.x+b.w-17,b.y+44);ctx.lineTo(b.x+17,b.y+44);ctx.lineTo(b.x,b.y+39);ctx.lineTo(b.x+8,b.y+15);ctx.closePath();ctx.fill()
         ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.fillRect(b.x+27,b.y+16,15,8);ctx.fillRect(b.x+b.w-42,b.y+16,15,8)
         ctx.fillStyle='#27102e';ctx.fillRect(b.x+31,b.y+18,7,5);ctx.fillRect(b.x+b.w-38,b.y+18,7,5)
@@ -430,6 +445,13 @@ export default function App() {
           const glow=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,radius)
           glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.24,fx.color+'cc');glow.addColorStop(1,'rgba(255,255,255,0)')
           ctx.fillStyle=glow;ctx.beginPath();ctx.arc(fx.x,fx.y,radius,0,Math.PI*2);ctx.fill()
+        } else if(fx.type==='alert'){
+          ctx.globalAlpha=alpha
+          ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 18px sans-serif'
+          ctx.shadowColor=fx.color;ctx.shadowBlur=18;ctx.fillStyle=fx.color
+          ctx.fillText(fx.label,W/2,150+(1-alpha)*12)
+          ctx.strokeStyle=fx.color;ctx.lineWidth=1.5;ctx.globalAlpha=alpha*.55
+          ctx.beginPath();ctx.moveTo(48,166);ctx.lineTo(112,166);ctx.moveTo(248,166);ctx.lineTo(312,166);ctx.stroke()
         } else {
           fx.r+=520*dt;ctx.strokeStyle='#ff9b4d';ctx.lineWidth=5;ctx.shadowColor='#ff6b35';ctx.shadowBlur=24
           ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r,0,Math.PI*2);ctx.stroke()
