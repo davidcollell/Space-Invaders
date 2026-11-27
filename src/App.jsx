@@ -283,7 +283,7 @@ export default function App() {
         s.lastShot=time; if(!muted) beep(520,.035)
       }
       s.bullets.forEach(b=>b.y-=410*dt); s.bullets=s.bullets.filter(b=>b.y>-15)
-      s.enemyBullets.forEach(b=>b.y+=190*dt); s.enemyBullets=s.enemyBullets.filter(b=>b.y<H+10)
+      s.enemyBullets.forEach(b=>{b.x+=(b.vx||0)*dt;b.y+=(b.vy||190)*dt}); s.enemyBullets=s.enemyBullets.filter(b=>b.y<H+10&&b.x>-20&&b.x<W+20)
       s.shields.forEach(sh=>{
         if(sh.hp<=0)return
         ctx.save();ctx.shadowColor='#46eaff';ctx.shadowBlur=13
@@ -306,7 +306,17 @@ export default function App() {
         ctx.fillStyle='#ffe18a';ctx.fillRect(b.x+48,b.y+33,12,4);ctx.fillRect(b.x+b.w-60,b.y+33,12,4)
         ctx.restore()
         ctx.save();ctx.fillStyle='#35133c';ctx.fillRect(45,22,270,9);ctx.fillStyle='#ff5c8a';ctx.shadowColor='#ff4c9a';ctx.shadowBlur=10;ctx.fillRect(45,22,270*(b.hp/b.maxHp),9);ctx.strokeStyle='#ffd5ef';ctx.strokeRect(45,22,270,9);ctx.restore()
-        if(time-b.shotAt>850){s.enemyBullets.push({x:b.x+b.w/2-3,y:b.y+b.h,w:6,h:12});b.shotAt=time}
+        const enraged=b.hp<=b.maxHp*.5
+        if(time-b.shotAt>(enraged?610:900)){
+          const sx=b.x+b.w/2, sy=b.y+b.h, tx=p.x+p.w/2, ty=p.y+p.h/2
+          const angle=Math.atan2(ty-sy,tx-sx), speed=enraged?225:205
+          const spread=enraged?[-.28,0,.28]:[0]
+          spread.forEach(offset=>{
+            const a=angle+offset
+            s.enemyBullets.push({x:sx-3,y:sy,w:6,h:12,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed})
+          })
+          b.shotAt=time
+        }
       } else {
         let minX=W,maxX=0,any=false
         const aliveCount = s.enemies.reduce((count,e)=>count+(e.alive?1:0),0)
