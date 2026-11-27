@@ -105,7 +105,11 @@ export default function App() {
       enemies: makeWave(1), boss: null, bullets: [], enemyBullets: [], particles: [], drops: [], effects: [],
       shields: [0, 1, 2].map(i => ({ x: 36 + i * 112, y: 405, w: 42, hp: 5 })),
       direction: 1, enemySpeed: 26, currentEnemySpeed: 26, descentRemaining: 0, lastShot: 0, lastEnemyShot: 0, lastHud: 0,
-      elapsed: 0, stars: Array.from({ length: 75 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.7 + .4 })),
+      elapsed: 0, starLayers: [
+        { speed: 9, stars: Array.from({ length: 42 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: .45 + Math.random() * .45, a: .2 + Math.random() * .22 })) },
+        { speed: 22, stars: Array.from({ length: 28 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: .8 + Math.random() * .65, a: .3 + Math.random() * .3 })) },
+        { speed: 43, stars: Array.from({ length: 15 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: 1.35 + Math.random() * .8, a: .48 + Math.random() * .38 })) }
+      ],
       combo: 0, comboUntil: 0, power: '', powerUntil: 0, nextExtraLife: 1200,
       waveCleared: false, level: 1, score: 0, lives: 3, paused: false
     }
@@ -237,14 +241,27 @@ export default function App() {
       const space=ctx.createLinearGradient(0,0,W,H)
       space.addColorStop(0,'#080d25');space.addColorStop(.48,'#101432');space.addColorStop(1,'#07152b')
       ctx.fillStyle=space;ctx.fillRect(0,0,W,H)
-      const nebula=ctx.createRadialGradient(180,235,8,180,235,225)
-      nebula.addColorStop(0,'rgba(74,43,145,.25)');nebula.addColorStop(.55,'rgba(20,100,150,.10)');nebula.addColorStop(1,'rgba(0,0,0,0)')
+      const nebulaX = 180 + Math.sin(s.elapsed * .13) * 105
+      const nebulaY = 230 + Math.cos(s.elapsed * .1) * 85
+      const nebula=ctx.createRadialGradient(nebulaX,nebulaY,8,nebulaX,nebulaY,235)
+      nebula.addColorStop(0,'rgba(83,53,166,.24)');nebula.addColorStop(.48,'rgba(25,111,166,.11)');nebula.addColorStop(1,'rgba(0,0,0,0)')
       ctx.fillStyle=nebula;ctx.fillRect(0,0,W,H)
-      s.stars.forEach(st=>{
-        st.y+=(12+st.s*15)*dt;if(st.y>H){st.y=0;st.x=Math.random()*W}
-        const alpha=.25+st.s/3
-        ctx.fillStyle=`rgba(180,225,255,${alpha})`;ctx.fillRect(st.x,st.y,st.s,st.s)
-        if(st.s>1.7){ctx.fillStyle=`rgba(100,210,255,${alpha*.22})`;ctx.fillRect(st.x-2,st.y-2,st.s+4,st.s+4)}
+      const distantX = 45 + Math.cos(s.elapsed * .09) * 95
+      const distantY = 390 + Math.sin(s.elapsed * .12) * 70
+      const distantNebula=ctx.createRadialGradient(distantX,distantY,4,distantX,distantY,155)
+      distantNebula.addColorStop(0,'rgba(30,151,174,.13)');distantNebula.addColorStop(1,'rgba(0,0,0,0)')
+      ctx.fillStyle=distantNebula;ctx.fillRect(0,0,W,H)
+      s.starLayers.forEach((layer,index)=>{
+        layer.stars.forEach(st=>{
+          st.y+=layer.speed*dt
+          if(st.y>H+3){st.y=-3;st.x=Math.random()*W}
+          ctx.fillStyle=`rgba(190,226,255,${st.a})`
+          ctx.fillRect(st.x,st.y,st.s,st.s)
+          if(index===2){
+            ctx.fillStyle=`rgba(91,218,255,${st.a*.2})`
+            ctx.fillRect(st.x-1,st.y-3,st.s+2,st.s+6)
+          }
+        })
       })
       ctx.save();ctx.strokeStyle='rgba(83,151,210,.12)';ctx.lineWidth=1
       for(let y=0;y<H;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
