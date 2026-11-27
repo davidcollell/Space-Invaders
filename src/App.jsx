@@ -348,7 +348,8 @@ export default function App() {
         const targetSpeed = s.enemySpeed * (1 + (1 - aliveCount / totalCount) * .65)
         s.currentEnemySpeed += (targetSpeed - s.currentEnemySpeed) * Math.min(1, 2.2 * dt)
         if(s.descentRemaining>0){
-          const step=Math.min(s.descentRemaining,65*dt)
+          const descentSpeed = s.level === 1 ? 30 : 65
+          const step=Math.min(s.descentRemaining,descentSpeed*dt)
           s.enemies.forEach(e=>{if(e.alive)e.y+=step})
           s.descentRemaining-=step
         } else {
@@ -386,9 +387,10 @@ export default function App() {
             minX=Math.min(minX,e.x)
             maxX=Math.max(maxX,e.x+e.w)
           })
-          if(any&&(maxX>W-10||minX<10)){
+          const edgeMargin = s.level === 1 ? 2 : 10
+          if(any&&(maxX>W-edgeMargin||minX<edgeMargin)){
             s.direction*=-1
-            s.descentRemaining=14
+            s.descentRemaining = s.level === 1 ? 6 : 14
           }
         }
         if(time-s.lastEnemyShot>Math.max(420,1450-s.level*65)){
