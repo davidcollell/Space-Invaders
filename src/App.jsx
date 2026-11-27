@@ -178,10 +178,25 @@ export default function App() {
       const colors = { triple: '#ffd166', laser: '#55eaff', bomb: '#ff884d', shield: '#69e6ff', rapid: '#a7ff8a', double: '#ffe18a', life: '#ff6c9a' }
       const color = colors[d.type] || '#ffe18a'
       const cx = d.x + 8, cy = d.y + 8
+      const age = d.age || 0
+      const pulse = 1 + Math.sin(s.elapsed * 7 + age) * .09
+      const entrance = Math.min(1, age / .22)
+      const scale = (.72 + entrance * .28) * pulse
+      const labels = { rapid: 'RÀPID', double: 'x2', triple: 'x3', laser: 'LÀSER', bomb: 'BOMBA', shield: 'ESCUT', life: '+1 VIDA' }
       ctx.save()
-      ctx.shadowColor = color; ctx.shadowBlur = 13
+      ctx.globalAlpha = entrance
+      ctx.translate(cx, cy)
+      ctx.scale(scale, scale)
+      const halo = ctx.createRadialGradient(0, 0, 3, 0, 0, 24)
+      halo.addColorStop(0, color + '66'); halo.addColorStop(1, color + '00')
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = entrance * (.45 + (Math.sin(s.elapsed * 5 + age) + 1) * .2)
+      ctx.beginPath(); ctx.arc(0, 0, 14 + (1 - entrance) * 8 + Math.sin(s.elapsed * 5 + age) * 2, 0, Math.PI * 2); ctx.stroke()
+      ctx.globalAlpha = entrance
+      ctx.shadowColor = color; ctx.shadowBlur = 17
       ctx.fillStyle = '#091426'; ctx.strokeStyle = color; ctx.lineWidth = 2
-      ctx.beginPath(); ctx.roundRect(d.x, d.y, 16, 16, 4); ctx.fill(); ctx.stroke()
+      ctx.beginPath(); ctx.roundRect(-8, -8, 16, 16, 4); ctx.fill(); ctx.stroke()
+      ctx.translate(-cx, -cy)
       ctx.shadowBlur = 0; ctx.fillStyle = color
       if (d.type === 'triple') {
         ctx.fillRect(cx-1,cy-6,2,12); ctx.fillRect(cx-5,cy-3,2,9); ctx.fillRect(cx+3,cy-3,2,9)
@@ -201,6 +216,16 @@ export default function App() {
         ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         ctx.fillText(d.type === 'rapid' ? 'R' : '2',cx,cy+1)
       }
+      ctx.restore()
+      ctx.save()
+      ctx.globalAlpha = entrance
+      ctx.font = '900 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      const label = labels[d.type] || 'BONUS'
+      const labelWidth = Math.max(24, ctx.measureText(label).width + 8)
+      ctx.fillStyle = '#071326'; ctx.strokeStyle = color; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.roundRect(cx - labelWidth / 2, d.y - 11, labelWidth, 9, 4); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#ffffff'; ctx.shadowColor = color; ctx.shadowBlur = 7
+      ctx.fillText(label, cx, d.y - 6.5)
       ctx.restore()
     }
     const burst = (x, y, color, count = 9, intensity = 1) => {
@@ -233,7 +258,7 @@ export default function App() {
       if (Math.random() < .17) {
         const types = ['rapid','double','triple','laser','bomb','shield','life']
         const type = types[Math.floor(Math.random()*types.length)]
-        s.drops.push({ x, y, type, vy: 70 })
+        s.drops.push({ x, y, type, vy: 70, age: 0 })
       }
     }
     const nextWave = () => {
@@ -418,6 +443,7 @@ export default function App() {
       })
       s.bullets.forEach(b=>s.shields.forEach(sh=>{if(sh.hp>0&&b.x<sh.x+sh.w&&b.x+b.w>sh.x&&b.y<sh.y+14&&b.y+b.h>sh.y){b.y=-30;sh.hp--}}))
       s.drops.forEach(d=>{
+        d.age += dt
         d.y+=d.vy*dt;drawPowerUp(d)
         if(d.x<p.x+p.w&&d.x+16>p.x&&d.y<p.y+p.h&&d.y+16>p.y){
           d.y=H+20
