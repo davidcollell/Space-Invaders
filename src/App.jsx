@@ -111,7 +111,7 @@ export default function App() {
         { speed: 43, stars: Array.from({ length: 15 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: 1.35 + Math.random() * .8, a: .48 + Math.random() * .38 })) }
       ],
       combo: 0, comboUntil: 0, power: '', powerUntil: 0, nextExtraLife: 1200,
-      waveCleared: false, level: 1, score: 0, lives: 3, paused: false
+      waveCleared: false, level: 1, score: 0, lives: 3, paused: false, shake: 0
     }
     setScore(0); setLevel(1); setLives(3); setHud({ score: 0, level: 1, lives: 3, combo: 0, power: '' })
     setNotice(''); setPaused(false); setScreen('playing')
@@ -194,12 +194,14 @@ export default function App() {
       }
       ctx.restore()
     }
-    const burst = (x, y, color, count = 9) => {
+    const burst = (x, y, color, count = 9, intensity = 1) => {
       for (let i=0;i<count;i++) {
-        const a = Math.random()*Math.PI*2, speed = 35+Math.random()*110
-        s.particles.push({ x, y, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed, life: .35+Math.random()*.4, max: .75, color, size: 2+Math.random()*2 })
+        const a = Math.random()*Math.PI*2, speed = (35+Math.random()*110)*intensity
+        const life = (.35+Math.random()*.4)*Math.min(1.5,intensity)
+        s.particles.push({ x, y, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed, life, max: life, color, size: (2+Math.random()*2)*Math.min(1.8,intensity) })
       }
     }
+    const flash = (x, y, color, radius = 34) => s.effects.push({ type: 'flash', x, y, color, r: radius, life: .18, max: .18 })
     const hit = () => {
       const p = s.player
       if (p.invulnerable > 0 || s.power === 'shield') return
@@ -238,6 +240,9 @@ export default function App() {
       if (!alive) return
       const dt = Math.min((time-(s.lastTime || time))/1000,.035)
       s.lastTime = time; s.elapsed += dt
+      s.shake = Math.max(0, s.shake - dt * 34)
+      ctx.save()
+      if (s.shake > 0) ctx.translate((Math.random()-.5)*s.shake, (Math.random()-.5)*s.shake)
       const space=ctx.createLinearGradient(0,0,W,H)
       space.addColorStop(0,'#080d25');space.addColorStop(.48,'#101432');space.addColorStop(1,'#07152b')
       ctx.fillStyle=space;ctx.fillRect(0,0,W,H)
@@ -353,11 +358,11 @@ export default function App() {
       s.bullets.forEach(b=>{
         if(s.boss && (!b.hitIds || !b.hitIds.includes('boss')) && b.x<s.boss.x+s.boss.w&&b.x+b.w>s.boss.x&&b.y<s.boss.y+s.boss.h&&b.y+b.h>s.boss.y){
           if(!b.pierce)b.y=-30;else {b.hitIds.push('boss');b.y-=1} s.boss.hp--;burst(b.x,b.y,'#ff9ab8',3);award(5);beep(250,.04)
-          if(s.boss.hp<=0){burst(s.boss.x+s.boss.w/2,s.boss.y+20,'#ff5c8a',35);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
+          if(s.boss.hp<=0){const cx=s.boss.x+s.boss.w/2,cy=s.boss.y+20;burst(cx,cy,'#ff5c8a',62,1.65);burst(cx,cy,'#ffe18a',28,1.25);flash(cx,cy,'#ff75b5',115);s.shake=13;if(navigator.vibrate)navigator.vibrate([55,35,100]);s.boss=null;award(500);s.enemies=makeWave(s.level);s.enemySpeed=30+s.level*5;s.currentEnemySpeed=s.enemySpeed}
         } else s.enemies.forEach(e=>{
           if(e.alive&&(!b.hitIds||!b.hitIds.includes(e))&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+(e.diveOffset||0)+e.h&&b.y+b.h>e.y+(e.diveOffset||0)){
             if(!b.pierce)b.y=-30;else b.hitIds.push(e);e.hp--;burst(e.x+11,e.y+(e.diveOffset||0)+9,COLORS[e.row%3],4)
-            if(e.hp<=0){e.alive=false;award(e.row===0?30:e.row===1?20:10);spawnDrop(e.x,e.y);beep(300+e.row*80,.055)}
+            if(e.hp<=0){e.alive=false;const ex=e.x+11,ey=e.y+(e.diveOffset||0)+9;const style=e.kind==='attacker'?{color:'#d18aff',count:23,power:1.25}:e.kind==='fast'?{color:'#8dff9b',count:17,power:1.05}:{color:COLORS[e.row%3],count:13,power:.9};burst(ex,ey,style.color,style.count,style.power);burst(ex,ey,'#fff4cf',5,.65);flash(ex,ey,style.color,e.kind==='attacker'?48:32);s.shake=Math.max(s.shake,e.kind==='attacker'?3:1.5);award(e.row===0?30:e.row===1?20:10);spawnDrop(e.x,e.y);beep(300+e.row*80,.055)}
           }
         })
       })
@@ -388,11 +393,19 @@ export default function App() {
       s.particles.forEach(pt=>{pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.life-=dt;ctx.globalAlpha=clamp(pt.life/pt.max,0,1);ctx.fillStyle=pt.color;ctx.fillRect(pt.x,pt.y,pt.size,pt.size)})
       ctx.globalAlpha=1;s.particles=s.particles.filter(pt=>pt.life>0)
       s.effects.forEach(fx=>{
-        fx.life-=dt; fx.r+=520*dt
+        fx.life-=dt
         const alpha=clamp(fx.life/fx.max,0,1)
-        ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle='#ff9b4d';ctx.lineWidth=5;ctx.shadowColor='#ff6b35';ctx.shadowBlur=24
-        ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r,0,Math.PI*2);ctx.stroke()
-        ctx.strokeStyle='#ffe7a3';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r*.72,0,Math.PI*2);ctx.stroke()
+        ctx.save();ctx.globalAlpha=alpha
+        if(fx.type==='flash'){
+          const radius=fx.r*(1-alpha*.45)
+          const glow=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,radius)
+          glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.24,fx.color+'cc');glow.addColorStop(1,'rgba(255,255,255,0)')
+          ctx.fillStyle=glow;ctx.beginPath();ctx.arc(fx.x,fx.y,radius,0,Math.PI*2);ctx.fill()
+        } else {
+          fx.r+=520*dt;ctx.strokeStyle='#ff9b4d';ctx.lineWidth=5;ctx.shadowColor='#ff6b35';ctx.shadowBlur=24
+          ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r,0,Math.PI*2);ctx.stroke()
+          ctx.strokeStyle='#ffe7a3';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx.x,fx.y,fx.r*.72,0,Math.PI*2);ctx.stroke()
+        }
         ctx.restore()
       })
       s.effects=s.effects.filter(fx=>fx.life>0)
@@ -418,6 +431,7 @@ export default function App() {
       if(!s.boss&&s.enemies.every(e=>!e.alive))nextWave()
       if(!s.boss&&s.enemies.some(e=>e.alive&&e.y+(e.diveOffset||0)+e.h>p.y-8))finishGame()
       if(time-s.lastHud>140){s.lastHud=time;setHud({score:s.score,level:s.level,lives:s.lives,combo:s.combo,power:s.power})}
+      ctx.restore()
       if(alive&&screen==='playing'&&s.lives>0)raf=requestAnimationFrame(loop)
     }
     raf=requestAnimationFrame(loop)
