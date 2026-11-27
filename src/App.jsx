@@ -9,11 +9,20 @@ const writeBest = value => { try { localStorage.setItem(BEST_KEY, String(value))
 const makeWave = level => {
   const rows = Math.min(3 + Math.floor((level - 1) / 2), 5)
   const cols = 7
+  const formation = (level - 1) % 4
+  const spacing = formation === 1 ? 39 : formation === 2 ? 45 : 43
+  const startX = (W - (cols - 1) * spacing - 22) / 2
   return Array.from({ length: rows * cols }, (_, i) => {
     const row = Math.floor(i / cols), col = i % cols
     const tough = level >= 4 && row === 0
-    const kind = level >= 3 && i % 9 === 0 ? 'attacker' : level >= 2 && i % 4 === 0 ? 'fast' : 'normal'
-    return { x: 34 + col * 43, y: 66 + row * 34, w: 22, h: 19, row, kind, diveOffset: 0, diveState: 'waiting', diveTimer: 2.5 + (i % 7) * .55, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
+    const kind = level >= 3 && (i % 9 === 0 || (formation === 3 && row === 1 && col % 3 === 1)) ? 'attacker' : level >= 2 && (i % 4 === 0 || (formation === 2 && (col === 0 || col === cols - 1))) ? 'fast' : 'normal'
+    let x = startX + col * spacing
+    let y = 62 + row * 34
+    if (formation === 1) y += Math.abs(col - 3) * 10
+    if (formation === 2) x += row % 2 ? spacing * .32 : 0
+    if (formation === 3) y += col % 2 ? 9 : -5
+    const squad = Math.floor(col / 2)
+    return { x, y, baseX: x, baseY: y, w: 22, h: 19, row, col, kind, formation, squad, diveOffset: 0, diveState: 'waiting', diveTimer: 2.5 + (i % 7) * .55, alive: true, hp: tough ? 2 : 1, maxHp: tough ? 2 : 1 }
   })
 }
 const makeBoss = level => ({ x: 126, y: 55, w: 108, h: 48, hp: 18 + level * 3, maxHp: 18 + level * 3, dir: 1, shotAt: 0 })
@@ -332,11 +341,21 @@ export default function App() {
             if(!e.alive)return
             any=true
             const speedFactor = e.kind === 'fast' ? 1.65 : 1
-            e.x+=s.direction*s.currentEnemySpeed*speedFactor*dt
+            const squadWave = Math.sin(s.elapsed * (0.85 + s.level * .025) + e.squad * 1.7 + e.row * .45)
+            const formationDrift = e.formation === 3 ? Math.sin(s.elapsed * .72 + e.col * .7) * 8 : 0
+            e.x+=s.direction*s.currentEnemySpeed*speedFactor*dt + (e.kind === 'attacker' && e.diveState === 'diving' ? 0 : squadWave * 5 * dt) + formationDrift * dt
             if (e.kind === 'attacker') {
               if (e.diveState === 'waiting') {
                 e.diveTimer -= dt
-                if (e.diveTimer <= 0) e.diveState = 'diving'
+                if (e.diveTimer <= 0) {
+                  const squadMates = s.enemies.filter(other => other.alive && other.kind === 'attacker' && other.squad === e.squad && other !== e)
+                  const squadReady = squadMates.length === 0 || squadMates.every(other => other.diveState === 'waiting' && other.diveTimer < 1.2)
+                  if (squadReady) {
+                    e.diveState = 'diving'
+                    e.diveTimer = 2.5
+                    squadMates.forEach(other => { other.diveTimer = Math.min(other.diveTimer, .28 + Math.random() * .3) })
+                  } else e.diveTimer = .25
+                }
               } else if (e.diveState === 'diving') {
                 e.diveOffset = Math.min(82, e.diveOffset + 125 * dt)
                 e.x += Math.sign((p.x + p.w / 2) - (e.x + e.w / 2)) * 42 * dt
